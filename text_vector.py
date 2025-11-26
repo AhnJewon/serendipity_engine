@@ -24,8 +24,8 @@ def test_vector_logic():
         # 3. 의미적 반대편 찾기 (코사인 유사도)
         print("2. 의미적 반대편 탐색 중...")
         
-        
-        similarities = cosine_similarity(interest_vector, all_vectors)
+        # 유사도 계산 (reshape(1,-1)은 1차원 배열을 2차원 행렬로 변환)
+        similarities = cosine_similarity(interest_vector.reshape(1, -1), all_vectors)
         
         # 가장 낮은 유사도 인덱스 찾기 (argsort의 첫 번째 요소)
         antipode_index = np.argsort(similarities[0])[0]
