@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from keybert import KeyBERT
 from SPARQLWrapper import SPARQLWrapper, JSON
 from sklearn.metrics.pairwise import cosine_similarity
+import json
 
 # 모델 및 데이터 로딩 (Streamlit 캐싱으로 앱 재실행 시 모델을 다시 로드하지 않도록 최적화)
 @st.cache_resource
@@ -17,13 +18,29 @@ def load_models():
 
 @st.cache_data
 def load_concept_map(_embedding_model):
-    # 의미 지도 개념 목록과 벡터를 로드
-    print("의미 지도 로딩 중...")
-    # 위키백과 표제어 사용전 테스트 코드
-    all_concepts = ['인공지능', '딥러닝', '자율주행', '도시 계획', '스토아 철학', '고대사', '미술사', '조류학', '양자역학', '분자생물학', '패션 디자인', '건축학', '경제학', '사회학', '심리학']
-    all_concept_vectors = _embedding_model.encode(all_concepts)
-    print("의미 지도 로딩 완료.")
-    return all_concepts, all_concept_vectors
+    """생성된 위키백과 의미 지도 파일들을 로드합니다."""
+    title_path = 'korean_wiki_titles.json'
+    vector_path = 'korean_wiki_vectors.npy'
+    
+    try:
+        print("대규모 의미 지도 로딩 중 (약간의 시간이 소요됩니다)...")
+        
+        # 1. 타이틀 리스트 로드
+        with open(title_path, 'r', encoding='utf-8') as f:
+            all_concepts = json.load(f)
+            
+        # 2. 벡터 행렬 로드
+        all_concept_vectors = np.load(vector_path)
+        
+        print(f"로딩 완료! (총 {len(all_concepts)}개의 개념)")
+        return all_concepts, all_concept_vectors
+        
+    except FileNotFoundError:
+        st.error("'의미 지도' 데이터 파일이 없습니다. 'build_semantic_map.py'를 먼저 실행해주세요.")
+        # 파일이 없을 경우를 대비한 비상용 더미 데이터
+        dummy_concepts = ['데이터 없음', '스크립트 실행 필요']
+        dummy_vectors = _embedding_model.encode(dummy_concepts)
+        return dummy_concepts, dummy_vectors
 
 embedding_model, kw_model = load_models()
 ALL_CONCEPTS, ALL_CONCEPT_VECTORS = load_concept_map(embedding_model)
