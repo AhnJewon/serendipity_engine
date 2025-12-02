@@ -4,6 +4,7 @@ from sentence_transformers import SentenceTransformer
 from keybert import KeyBERT
 from SPARQLWrapper import SPARQLWrapper, JSON
 from sklearn.metrics.pairwise import cosine_similarity
+import random
 import json
 
 # 모델 및 데이터 로딩 (Streamlit 캐싱으로 앱 재실행 시 모델을 다시 로드하지 않도록 최적화)
@@ -76,19 +77,76 @@ def get_interest_nebula_vector(concepts, embedding_model):
     
     return weighted_avg_vector
 
-def find_semantic_antipode(interest_vector, concept_vectors, all_concepts, top_n=5):
-    """관심 벡터와 가장 거리가 먼 개념(의미적 반대편)을 찾습니다."""
+def find_semantic_antipode(interest_vector, concept_vectors, all_concepts, top_n=30, diversity=0.4):
+    """
+    관심 벡터와 의미적으로 멀면서, 동시에 서로 다양한 개념들을 찾습니다.
+    """
     if interest_vector is None:
         return []
 
-    similarities = cosine_similarity(interest_vector.reshape(1, -1), concept_vectors)
+    # 1. 모든 개념과의 코사인 유사도 계산
+    user_sims = cosine_similarity(interest_vector.reshape(1, -1), concept_vectors)[0]
+    sorted_indices = np.argsort(user_sims) # 유사도 낮은 순(먼 순서) 정렬
+
+    # 2. 초기 후보군 선정 (Outlier 제거 로직 적용)
+    candidate_indices = []
+
+    # 1000등부터 탐색 시작 (너무 극단적인 노이즈 회피)
+    # 최대 50,000등까지만 탐색 (속도 고려)
+    search_range = sorted_indices[1000:50000] 
     
-    # 2D 배열인 similarities에서 첫 번째 행(1D 배열)을 선택하여 정렬
-    antipode_indices = np.argsort(similarities[0])[:top_n]
+    target_pool_size = 300 # MMR을 돌리기 위한 후보군 크기
     
-    # 가장 이질적인 개념들을 반환합니다.
-    antipode_concepts = [all_concepts[i] for i in antipode_indices]
-    return antipode_concepts
+    for idx in search_range:
+        title = all_concepts[idx]
+        
+        # [핵심] 여기서 미리 거릅니다!
+        if is_valid_title(title):
+            candidate_indices.append(idx)
+            
+        # 목표 수량을 채우면 탐색 중단
+        if len(candidate_indices) >= target_pool_size:
+            break
+            
+    # 혹시라도 부족하면 있는 대로 진행
+    if not candidate_indices:
+        return []
+    
+    selected_indices = []
+    
+    # 3. Greedy Selection (MMR 알고리즘)
+    for _ in range(top_n):
+        best_idx = -1
+        best_score = -float('inf')
+
+        for idx in candidate_indices:
+            if idx in selected_indices:
+                continue
+            
+            # A. 사용자 관심사와의 거리 (멀수록 좋음)
+            dist_to_user = 1 - user_sims[idx]
+            
+            # B. 이미 선택된 개념들과의 거리 (다양성)
+            if not selected_indices:
+                dist_to_selected = 1.0 
+            else:
+                selected_vectors = concept_vectors[selected_indices]
+                current_vector = concept_vectors[idx].reshape(1, -1)
+                sims_to_selected = cosine_similarity(current_vector, selected_vectors)[0]
+                dist_to_selected = 1 - np.max(sims_to_selected)
+            
+            # 점수 계산 (다양성 반영)
+            score = (1 - diversity) * dist_to_user + (diversity * dist_to_selected)
+            
+            if score > best_score:
+                best_score = score
+                best_idx = idx
+        
+        if best_idx != -1:
+            selected_indices.append(best_idx)
+            
+    return [all_concepts[i] for i in selected_indices]
+
 
 def find_bridge_keywords(concept1, concept2):
     """Wikidata에서 두 개념 사이의 연결 경로를 탐색하여 키워드를 찾습니다."""
@@ -151,38 +209,64 @@ if st.button("새로운 발견 시작하기"):
     if search_history_input:
         history_list = [line.strip() for line in search_history_input.split('\n') if line.strip()]
         
-        with st.spinner("당신의 지적 성운을 분석 중입니다..."):
-            # Phase 1 실행
+        if len(history_list) < 2:
+            st.warning("💡 더 정확한 분석을 위해 2개 이상의 관심사를 입력해주시면 좋습니다.")
+
+        with st.spinner("1. 당신의 지적 성운(Interest Nebula)을 분석 중입니다..."):
+            # Phase 1: 핵심 개념 추출 및 벡터화
             concepts = extract_key_concepts(history_list)
+            
             if not concepts:
-                st.error("입력에서 핵심 개념을 추출하지 못했습니다. 더 자세히 입력해주세요.")
+                st.error("입력에서 유의미한 핵심 개념을 찾지 못했습니다. 조금 더 자세히 적어주세요.")
             else:
-                st.info(f"**분석된 핵심 관심사:** {', '.join(concepts)}")
-                
+                st.info(f"**🔍 분석된 핵심 키워드:** {', '.join(concepts)}")
                 interest_vector = get_interest_nebula_vector(concepts, embedding_model)
                 
-                antipode_concepts = find_semantic_antipode(interest_vector, ALL_CONCEPT_VECTORS, ALL_CONCEPTS, top_n=1)
+                # Phase 2: 의미적 반대편 탐색 (MMR 적용)
+                with st.spinner("2. 의미의 우주를 탐색하여 낯선 행성(Antipode)을 찾는 중입니다..."):
+                    # 넉넉하게 30개를 뽑습니다 (필터링 및 연결성 검증을 위해)
+                    candidates = find_semantic_antipode(interest_vector, ALL_CONCEPT_VECTORS, ALL_CONCEPTS, top_n=30, diversity=0.4)
                 
-                if not antipode_concepts:
-                    st.warning("의미적 반대편을 찾지 못했습니다.")
-                else:
-                    # 리스트의 첫 번째 항목을 명확히 선택
-                    main_concept = concepts[0]
-                    antipode_concept = antipode_concepts[0] 
-                    st.info(f"**새로운 탐험 영역 제안:** #{antipode_concept}")
-
-                    # Phase 2 실행
-                    with st.spinner(f"'{main_concept}'와(과) '#{antipode_concept}' 사이의 의외의 연결고리를 찾는 중..."):
-                        bridge_keywords = find_bridge_keywords(main_concept, antipode_concept)
+                # Phase 3: 필터링 및 연결 고리 검증 (기존의 단순 random.choice 대신 검증 루프 사용)
+                with st.spinner("3. 논리적 연결 고리(Bridge)를 건설 중입니다..."):
+                    main_concept = concepts[0] # 가장 비중 있는 키워드
+                    final_antipode = None
+                    final_bridges = []
+                    
+                    progress_bar = st.progress(0)
+                    
+                    # 후보군을 하나씩 순회하며 "쓸만한 놈"인지 확인합니다.
+                    for i, candidate in enumerate(candidates):
+                        progress_bar.progress((i + 1) / len(candidates))
                         
-                        if bridge_keywords:
-                            st.success("💡 **연결고리 키워드를 발견했습니다!**")
-                            st.write("다음 키워드들로 탐험을 시작해보세요:")
-                            
-                            # 키워드를 클릭 가능한 링크처럼 보이게 만듬
-                            keyword_md = " -> ".join([f"`{kw}`" for kw in bridge_keywords])
-                            st.markdown(f"**`{main_concept}`** -> {keyword_md} -> **`{antipode_concept}`**")
-                        else:
-                            st.warning("두 개념을 잇는 직접적인 연결고리를 찾지 못했습니다. 하지만 이것 자체로 새로운 발견일 수 있습니다!")
+                        # 연결 고리 존재 여부 확인 (SPARQL)
+                        bridges = find_bridge_keywords(main_concept, candidate)
+                        if bridges:
+                            final_antipode = candidate
+                            final_bridges = bridges
+                            break
+                    
+                    progress_bar.empty() # 진행바 숨기기
+
+                # 최종 결과 출력
+                if final_antipode:
+                    st.success(f"🎯 **새로운 탐험 영역 발견:** #{final_antipode}")
+                    st.markdown("---")
+                    
+                    # 연결 고리 시각화
+                    path_steps = [f"**{main_concept}**"] + [f"`{b}`" for b in final_bridges] + [f"**{final_antipode}**"]
+                    path_md = " ➡️ ".join(path_steps)
+                    
+                    st.write("다음의 논리적 경로를 통해 당신의 관심사와 연결됩니다:")
+                    st.info(path_md)
+                    
+                    st.caption(f"💡 '{main_concept}'와(과) '{final_antipode}' 사이의 관계를 Wikidata 지식 그래프에서 찾았습니다.")
+                else:
+                    st.warning("아쉽게도 논리적으로 연결 가능한 '의미적 반대편'을 찾지 못했습니다.")
+                    st.write("관심사와 너무 동떨어진 개념만 남았거나, 지식 그래프 연결이 끊겨있을 수 있습니다. 다른 주제로 다시 시도해보세요!")
+                    if candidates:
+                        st.write(f"(참고: 후보로 '{candidates[0]}' 등이 발견되었으나 연결 고리가 부족했습니다.)")
+                        print(f"Debug: Candidates were {candidates}")
+
     else:
         st.error("검색 기록을 입력해주세요.")
