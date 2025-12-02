@@ -86,31 +86,11 @@ def find_semantic_antipode(interest_vector, concept_vectors, all_concepts, top_n
 
     # 1. 모든 개념과의 코사인 유사도 계산
     user_sims = cosine_similarity(interest_vector.reshape(1, -1), concept_vectors)[0]
-    sorted_indices = np.argsort(user_sims) # 유사도 낮은 순(먼 순서) 정렬
-
-    # 2. 초기 후보군 선정 (Outlier 제거 로직 적용)
-    candidate_indices = []
-
-    # 1000등부터 탐색 시작 (너무 극단적인 노이즈 회피)
-    # 최대 50,000등까지만 탐색 (속도 고려)
-    search_range = sorted_indices[1000:50000] 
-    
-    target_pool_size = 300 # MMR을 돌리기 위한 후보군 크기
-    
-    for idx in search_range:
-        title = all_concepts[idx]
-        
-        # [핵심] 여기서 미리 거릅니다!
-        if is_valid_title(title):
-            candidate_indices.append(idx)
-            
-        # 목표 수량을 채우면 탐색 중단
-        if len(candidate_indices) >= target_pool_size:
-            break
-            
-    # 혹시라도 부족하면 있는 대로 진행
-    if not candidate_indices:
-        return []
+   
+    # 2. 초기 후보군 선정
+    pool_size = 500
+    sorted_indices = np.argsort(user_sims) # 오름차순(유사도 낮은 순)
+    candidate_indices = sorted_indices[:pool_size]
     
     selected_indices = []
     
@@ -183,7 +163,8 @@ def find_bridge_keywords(concept1, concept2):
     sparql = SPARQLWrapper(endpoint_url)
     sparql.setQuery(query)
     sparql.setReturnFormat(JSON)
-    
+    sparql.setTimeout(10)
+            
     try:
         results = sparql.query().convert()
         keywords = [result["bridgeLabel"]["value"] for result in results["results"]["bindings"]]
@@ -210,7 +191,7 @@ if st.button("새로운 발견 시작하기"):
         history_list = [line.strip() for line in search_history_input.split('\n') if line.strip()]
         
         if len(history_list) < 2:
-            st.warning("💡 더 정확한 분석을 위해 2개 이상의 관심사를 입력해주시면 좋습니다.")
+            st.warning("더 정확한 분석을 위해 2개 이상의 관심사를 입력해주시면 좋습니다.")
 
         with st.spinner("1. 당신의 지적 성운(Interest Nebula)을 분석 중입니다..."):
             # Phase 1: 핵심 개념 추출 및 벡터화
@@ -235,7 +216,6 @@ if st.button("새로운 발견 시작하기"):
                     
                     progress_bar = st.progress(0)
                     
-                    # 후보군을 하나씩 순회하며 "쓸만한 놈"인지 확인합니다.
                     for i, candidate in enumerate(candidates):
                         progress_bar.progress((i + 1) / len(candidates))
                         
