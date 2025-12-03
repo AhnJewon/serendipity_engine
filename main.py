@@ -230,17 +230,17 @@ if st.button("새로운 발견 시작하기"):
 
                 # 최종 결과 출력
                 if final_antipode:
-                    st.success(f"🎯 **새로운 탐험 영역 발견:** #{final_antipode}")
+                    st.success(f"**새로운 탐험 영역 발견:** #{final_antipode}")
                     st.markdown("---")
                     
                     # 연결 고리 시각화
                     path_steps = [f"**{main_concept}**"] + [f"`{b}`" for b in final_bridges] + [f"**{final_antipode}**"]
-                    path_md = " ➡️ ".join(path_steps)
+                    path_md = " -> ".join(path_steps)
                     
                     st.write("다음의 논리적 경로를 통해 당신의 관심사와 연결됩니다:")
                     st.info(path_md)
                     
-                    st.caption(f"💡 '{main_concept}'와(과) '{final_antipode}' 사이의 관계를 Wikidata 지식 그래프에서 찾았습니다.")
+                    st.caption(f"'{main_concept}'와(과) '{final_antipode}' 사이의 관계를 Wikidata 지식 그래프에서 찾았습니다.")
                 else:
                     st.warning("아쉽게도 논리적으로 연결 가능한 '의미적 반대편'을 찾지 못했습니다.")
                     st.write("관심사와 너무 동떨어진 개념만 남았거나, 지식 그래프 연결이 끊겨있을 수 있습니다. 다른 주제로 다시 시도해보세요!")
