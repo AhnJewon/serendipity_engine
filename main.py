@@ -69,8 +69,8 @@ def extract_complex_candidates(text, valid_concepts_set):
     텍스트에서 명사 및 복합 명사를 추출하되, 
     '위키백과 표제어(valid_concepts_set)'에 존재하는 개념만 추출출
     """
-    print("\n[DEBUG]t\extract_complex_candidates 시작")
-    print(f"[DEBUG]t\입력 텍스트 길이: {len(text)} 문자")
+    print("\n[DEBUG]\textract_complex_candidates 시작")
+    print(f"[DEBUG]\t입력 텍스트 길이: {len(text)} 문자")
     
     # 1. 텍스트를 줄바꿈 기준으로 분리
     lines = text.split('\n')
@@ -105,7 +105,7 @@ def extract_complex_candidates(text, valid_concepts_set):
             # 위키백과 표제어에 있는 경우에만 후보로 등록
             if noun in valid_concepts_set:
                 candidates.add(noun)
-                print(f"[DEBUG]t\단일 명사 매칭: '{noun}'")
+                print(f"[DEBUG]\t단일 명사 매칭: '{noun}'")
         
         # 2. 복합 명사(2단어, 3단어) 검증
         for i in range(n):
@@ -116,7 +116,7 @@ def extract_complex_candidates(text, valid_concepts_set):
                 
                 if (bigram in valid_concepts_set) or (bigram_nospace in valid_concepts_set):
                     candidates.add(bigram)
-                    print(f"[DEBUG]t\복합명사(2) 매칭: '{bigram}'")
+                    print(f"[DEBUG]\t복합명사(2) 매칭: '{bigram}'")
             
             # 3단어 결합
             if i + 2 < n:
@@ -125,11 +125,11 @@ def extract_complex_candidates(text, valid_concepts_set):
                 
                 if (trigram in valid_concepts_set) or (trigram_nospace in valid_concepts_set):
                     candidates.add(trigram)
-                    print(f"[DEBUG]t\복합명사(3) 매칭: '{trigram}'")
+                    print(f"[DEBUG]\t복합명사(3) 매칭: '{trigram}'")
 
-    print(f"[DEBUG]t\전체 추출된 명사: {set(all_extracted_nouns)}")
-    print(f"[DEBUG]t\최종 후보 개수: {len(candidates)}")
-    print(f"[DEBUG]t\최종 후보 목록: {list(candidates)}\n")
+    print(f"[DEBUG]\t전체 추출된 명사: {set(all_extracted_nouns)}")
+    print(f"[DEBUG]\t최종 후보 개수: {len(candidates)}")
+    print(f"[DEBUG]\t최종 후보 목록: {list(candidates)}\n")
     return list(candidates)
 
 def extract_key_concepts(search_history):
@@ -152,10 +152,10 @@ def extract_key_concepts(search_history):
     # 본문 자체를 형태소 단위로 띄어쓰기
     tokenized_tokens = kiwi.tokenize(full_text)
     tokenized_text = " ".join([t.form for t in tokenized_tokens])
-    print(f"\n[DEBUG]t\형태소 분리 텍스트 (처음 200자): {tokenized_text[:200]}...")
+    print(f"\n[DEBUG]\t형태소 분리 텍스트 (처음 200자): {tokenized_text[:200]}...")
 
     # 3. 모델 실행
-    print(f"[DEBUG]t\KeyBERT 실행 - 후보군 개수: {len(complex_candidates)}")
+    print(f"[DEBUG]\tKeyBERT 실행 - 후보군 개수: {len(complex_candidates)}")
     keywords_with_scores = kw_model.extract_keywords(
         tokenized_text, 
         candidates=complex_candidates, 
@@ -165,7 +165,7 @@ def extract_key_concepts(search_history):
         diversity=0.3
     )
     
-    print(f"\n[DEBUG]t\KeyBERT 결과 (키워드, 점수):")
+    print(f"\n[DEBUG]\tKeyBERT 결과 (키워드, 점수):")
     for kw, score in keywords_with_scores:
         print(f"  - {kw}: {score:.4f}")
     print()
@@ -177,16 +177,16 @@ def get_interest_nebula_vector(concepts, embedding_model):
     if not concepts:
         return None
     
-    print(f"\n[DEBUG]t\관심 성운 벡터 생성")
-    print(f"[DEBUG]t\입력 개념: {concepts}")
+    print(f"\n[DEBUG]\t관심 성운 벡터 생성")
+    print(f"[DEBUG]\t입력 개념: {concepts}")
     
     concept_vectors = embedding_model.encode(concepts)
     # 최신(또는 상위) 키워드에 가중치 부여
     weights = np.linspace(0.8, 1.2, len(concepts))
-    print(f"[DEBUG]t\가중치: {weights}")
+    print(f"[DEBUG]\t가중치: {weights}")
     
     weighted_avg_vector = np.average(concept_vectors, axis=0, weights=weights)
-    print(f"[DEBUG]t\생성된 벡터 shape: {weighted_avg_vector.shape}\n")
+    print(f"[DEBUG]\t생성된 벡터 shape: {weighted_avg_vector.shape}\n")
     
     return weighted_avg_vector
 
@@ -200,24 +200,24 @@ def find_semantic_antipode_by_clustering(interest_vector, n_clusters=5, pool_siz
         return []
 
     # 1. 전체 개념과의 코사인 유사도 계산
-    print(f"\n[DEBUG]t\반대편 탐색 시작 (pool_size={pool_size}, n_clusters={n_clusters})")
+    print(f"\n[DEBUG]\t반대편 탐색 시작 (pool_size={pool_size}, n_clusters={n_clusters})")
     user_sims = cosine_similarity(interest_vector.reshape(1, -1), ALL_CONCEPT_VECTORS)[0]
-    print(f"[DEBUG]t\유사도 범위: {user_sims.min():.4f} ~ {user_sims.max():.4f}")
+    print(f"[DEBUG]\t유사도 범위: {user_sims.min():.4f} ~ {user_sims.max():.4f}")
 
     # 2. 유사도가 가장 낮은 하위 pool_size개 인덱스 추출 (오름차순 정렬)
     far_indices = np.argsort(user_sims)[:pool_size]
-    print(f"[DEBUG]t\가장 먼 {pool_size}개 개념 선별 완료")
-    print(f"[DEBUG]t\최하위 유사도 샘플 (5개): {user_sims[far_indices[:5]]}")
+    print(f"[DEBUG]\t가장 먼 {pool_size}개 개념 선별 완료")
+    print(f"[DEBUG]\t최하위 유사도 샘플 (5개): {user_sims[far_indices[:5]]}")
     
     far_vectors = ALL_CONCEPT_VECTORS[far_indices]
     far_concepts = [ALL_CONCEPTS[i] for i in far_indices]
-    print(f"[DEBUG]t\샘플 개념들: {far_concepts[:10]}")
+    print(f"[DEBUG]\t샘플 개념들: {far_concepts[:10]}")
     
     # 3. K-Means 군집화 수행
-    print(f"[DEBUG]t\K-Means 군집화 시작...")
+    print(f"[DEBUG]\tK-Means 군집화 시작...")
     kmeans = KMeans(n_clusters=n_clusters, random_state=None, n_init='auto')
     kmeans.fit(far_vectors)
-    print(f"[DEBUG]t\군집화 완료 (inertia: {kmeans.inertia_:.2f})")
+    print(f"[DEBUG]\t군집화 완료 (inertia: {kmeans.inertia_:.2f})")
     
     centers = kmeans.cluster_centers_
     cluster_labels = kmeans.labels_
@@ -225,7 +225,7 @@ def find_semantic_antipode_by_clustering(interest_vector, n_clusters=5, pool_siz
     representative_concepts = []
     
     # 4. 각 군집별 대표 단어 추출
-    print(f"\n[DEBUG]t\각 군집의 대표 단어 선정:")
+    print(f"\n[DEBUG]\t각 군집의 대표 단어 선정:")
     for i in range(n_clusters):
         # 해당 클러스터에 속하는 벡터들 마스킹
         mask = (cluster_labels == i)
@@ -247,14 +247,14 @@ def find_semantic_antipode_by_clustering(interest_vector, n_clusters=5, pool_siz
         print(f"  [군집 {i}] 대표: '{representative}' (중심 유사도: {sims_to_center[best_idx]:.4f})")
         print(f"  [군집 {i}] 샘플: {list(cluster_concepts_list[:5])}")
     
-    print(f"\n[DEBUG]t\최종 대표 개념들: {representative_concepts}\n")
+    print(f"\n[DEBUG]\t최종 대표 개념들: {representative_concepts}\n")
     return representative_concepts
 
 def check_and_promote_concept(concept):
     """
     개념 승격 시, '목록', '동음이의어' 같은 메타 데이터를 제외
     """
-    print(f"\n[DEBUG]t\개념 승격(추상화) 시도: '{concept}'")
+    print(f"\n[DEBUG]\t개념 승격(추상화) 시도: '{concept}'")
     endpoint_url = "https://query.wikidata.org/sparql"
     sparql = SPARQLWrapper(endpoint_url)
     
@@ -295,18 +295,18 @@ def check_and_promote_concept(concept):
             promoted = bindings[0].get("parentLabel", {}).get("value")
             # 영어 이름이 그대로 나오거나 입력과 같으면 패스
             if promoted and promoted != concept: 
-                print(f"[DEBUG]t\승격 성공: '{concept}' -> '{promoted}'")
+                print(f"[DEBUG]\t승격 성공: '{concept}' -> '{promoted}'")
                 return promoted, True
                 
-        print(f"[DEBUG]t\- 승격 실패 (유효한 상위 개념 없음)")
+        print(f"[DEBUG]\t- 승격 실패 (유효한 상위 개념 없음)")
         return concept, False
         
     except Exception as e:
-        print(f"[DEBUG]t\! SPARQL 에러: {e}")
+        print(f"[DEBUG]\t! SPARQL 에러: {e}")
         return concept, False
         
     except Exception as e:
-        print(f"[DEBUG]t\! SPARQL 에러: {e}")
+        print(f"[DEBUG]\t! SPARQL 에러: {e}")
         return concept, False
 
 def is_string_too_similar(s1, s2):
@@ -330,7 +330,7 @@ def find_multi_step_bridge(start_concept, end_concept):
     """
     ALL_CONCEPTS, ALL_CONCEPT_VECTORS, embedding_model 전역 변수를 사용합니다.
     """
-    print(f"\n[DEBUG]t\벡터 연결고리 생성: '{start_concept}' -> ... -> '{end_concept}'")
+    print(f"\n[DEBUG]\t벡터 연결고리 생성: '{start_concept}' -> ... -> '{end_concept}'")
     
     # 1. 시작점 벡터 찾기
     try:
@@ -387,7 +387,7 @@ def find_multi_step_bridge(start_concept, end_concept):
         
         if found_step:
             path.append(found_step)
-            print(f"[DEBUG]t\{int(t*100)}% 지점 발견: '{found_step}'")
+            print(f"[DEBUG]\t{int(t*100)}% 지점 발견: '{found_step}'")
         else:
             path.append("연관 개념")
 
@@ -425,7 +425,7 @@ def fill_gap_between(w1, w2, exclude_list=None):
     return None
 
 def smooth_path_recursively(full_path, threshold=0.5):
-    print(f"[DEBUG]t\경로 평탄화 시작: {full_path}")
+    print(f"[DEBUG]\t경로 평탄화 시작: {full_path}")
     refined_path = [full_path[0]] 
     
     for i in range(len(full_path) - 1):
@@ -439,7 +439,7 @@ def smooth_path_recursively(full_path, threshold=0.5):
         
         # Gap 발견 시 보수 공사
         if similarity < threshold:
-            print(f"[DEBUG]t\Gap 발견 ({curr_word} <-> {next_word}, sim={similarity:.2f})")
+            print(f"[DEBUG]\tGap 발견 ({curr_word} <-> {next_word}, sim={similarity:.2f})")
             
             # 이미 나온 단어들을 피하도록 함
             # 현재까지 확정된 경로(refined_path)와 다음 목적지(next_word)를 배제 목록으로 전달
@@ -448,10 +448,10 @@ def smooth_path_recursively(full_path, threshold=0.5):
             gap_filler = fill_gap_between(curr_word, next_word, exclude_words)
             
             if gap_filler:
-                print(f"[DEBUG]t\보강 완료: {gap_filler}")
+                print(f"[DEBUG]\t보강 완료: {gap_filler}")
                 refined_path.append(gap_filler)
             else:
-                print(f"[DEBUG]t\보강 실패")
+                print(f"[DEBUG]\t보강 실패")
         
         refined_path.append(next_word)
         
