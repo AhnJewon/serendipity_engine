@@ -547,7 +547,7 @@ if start_btn:
             # --- 최종 결과 카드 표시 (UI 개선) ---
             if final_path:
                 st.balloons()
-                st.success(f"###새로운 탐험지 발견: [{final_path['end']}]")
+                st.success(f"### 새로운 탐험지 발견: [{final_path['end']}]")
                 st.markdown("---")
 
                 # 전체 경로 시각화
