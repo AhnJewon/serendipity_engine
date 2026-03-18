@@ -61,7 +61,7 @@ pip install streamlit numpy scikit-learn sentence-transformers keybert SPARQLWra
 python build_semantic_map.py
 ```
 
-> 참고: 기본 설정에서는 프로젝트 루트(예: `/home/runner/work/serendipity_engine/serendipity_engine`)에  
+> 참고: 기본 설정에서는 프로젝트 루트(예: `~/serendipity_engine`)에  
 > `kowiki-latest-pages-articles.xml.bz2` 파일이 있어야 합니다.  
 > 다른 위치를 사용하려면 `build_semantic_map.py`의 `DUMP_FILE` 상수를 수정하세요.
 > 덤프 파일은 [Wikimedia Dumps](https://dumps.wikimedia.org/kowiki/latest/)에서 받을 수 있습니다.
