@@ -1,0 +1,8 @@
+streamlit
+numpy
+scikit-learn
+sentence-transformers
+keybert
+SPARQLWrapper
+kiwipiepy
+tqdm
