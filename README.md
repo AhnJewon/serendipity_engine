@@ -62,6 +62,7 @@ python build_semantic_map.py
 ```
 
 > 참고: 스크립트는 `kowiki-latest-pages-articles.xml.bz2` 파일이 같은 디렉터리에 있다고 가정합니다.
+> 덤프 파일은 Wikimedia Dumps(https://dumps.wikimedia.org/kowiki/latest/)에서 받을 수 있습니다.
 
 ### 2) 앱 실행
 
