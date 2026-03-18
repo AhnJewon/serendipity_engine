@@ -40,10 +40,10 @@ Python 3.10+ 권장
 - `kiwipiepy`
 - `tqdm`
 
-예시 설치:
+설치:
 
 ```bash
-pip install streamlit numpy scikit-learn sentence-transformers keybert SPARQLWrapper kiwipiepy tqdm
+pip install -r requirements.txt
 ```
 
 ## 빠른 시작
